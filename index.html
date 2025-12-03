@@ -2,27 +2,28 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>База паломнических текстов — визуализация</title>
+    <title>База паломнических текстов</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body { font-family: Arial, sans-serif; margin: 20px; }
+        table { border-collapse: collapse; width: 100%; margin-top: 20px; }
+        th, td { border: 1px solid #aaa; padding: 5px; text-align: left; }
         canvas { margin: 40px 0; }
     </style>
 </head>
 <body>
-    <h1>Визуализация паломнических текстов</h1>
-    <p>Данные берутся из <code>pilgrims.csv</code> автоматически.</p>
 
-    <h2>Распределение записок по годам посещения Святой земли</h2>
-    <canvas id="chartYears" width="600" height="300"></canvas>
+<h1>База паломнических текстов</h1>
+<p>Данные берутся из <code>pilgrims.csv</code></p>
 
-    <h2>Распределение авторов по роду деятельности</h2>
-    <canvas id="chartRoles" width="600" height="300"></canvas>
+<h2>Данные таблицы</h2>
+<div id="table-container"></div>
 
-    <h2>Количество записок по журналам</h2>
-    <canvas id="chartJournals" width="600" height="300"></canvas>
+<h2>Графики</h2>
+<canvas id="chartYears" width="600" height="300"></canvas>
+<canvas id="chartRoles" width="600" height="300"></canvas>
+<canvas id="chartJournals" width="600" height="300"></canvas>
 
-    <script src="script.js"></script>
+<script src="script.js"></script>
 </body>
 </html>
-
