@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<title>База паломнических текстов</title>
+<title>База паломнических текстов - Dracor-style</title>
 
 <!-- Google Fonts -->
 <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
@@ -18,4 +18,183 @@
 
 <style>
 body {
-    font-family: 'Roboto', Arial, sans-serif
+    font-family: 'Roboto', Arial, sans-serif;
+    font-size: 14px;
+    color: #333;
+    margin: 20px;
+    background-color: #f9f9f9;
+}
+
+h1 { margin-bottom: 10px; }
+.filters { display: flex; gap: 15px; margin-bottom: 10px; flex-wrap: wrap; }
+
+select {
+    padding: 6px 10px;
+    border-radius: 4px;
+    border: 1px solid #ccc;
+    font-size: 14px;
+}
+
+.dashboard {
+    display: flex;
+    gap: 20px;
+}
+
+#table-container {
+    flex: 1 1 60%;
+    min-width: 400px;
+}
+
+#pilgrimTable th, #pilgrimTable td {
+    padding: 6px 8px;
+    text-align: left;
+    border-bottom: 1px solid #ddd;
+}
+
+#pilgrimTable th {
+    background-color: #4CAF50;
+    color: white;
+    font-weight: 500;
+    cursor: pointer;
+}
+
+#pilgrimTable tr:hover { background-color: #f1f1f1; }
+
+#charts-container {
+    flex: 1 1 35%;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    max-width: 600px;
+}
+
+#charts-container canvas {
+    border-radius: 4px;
+    background-color: #fff;
+    padding: 10px;
+    box-shadow: 0 0 15px rgba(0,0,0,0.1);
+}
+</style>
+</head>
+<body>
+
+<h1>База паломнических текстов</h1>
+<div class="filters">
+    <select id="filterRole"><option value="">Все роли</option></select>
+    <select id="filterJournal"><option value="">Все журналы</option></select>
+    <select id="filterYear"><option value="">Все годы</option></select>
+</div>
+
+<div class="dashboard">
+    <div id="table-container">
+        <table id="pilgrimTable" class="display" style="width:100%"></table>
+    </div>
+    <div id="charts-container">
+        <canvas id="chartYears"></canvas>
+        <canvas id="chartRoles"></canvas>
+        <canvas id="chartJournals"></canvas>
+    </div>
+</div>
+
+<script>
+let chartYears, chartRoles, chartJournals;
+const roleColors = { 'архимандрит':'rgba(255, 99, 132, 0.6)', 'протоирей':'rgba(54, 162, 235, 0.6)', 'чиновник':'rgba(255, 206, 86, 0.6)' };
+
+// Функция для подсчета по полю
+function countField(arr, field) {
+    const counts = {};
+    arr.forEach(r => {
+        let val = r[field];
+        if(val) counts[val] = (counts[val] || 0) + 1;
+    });
+    return counts;
+}
+
+// Построение графиков
+function drawCharts(data) {
+    const countsYears = countField(data, 'Дата посещения Святой земли');
+    const countsRoles = countField(data, 'Род деятельности на момент публикации текста');
+    const countsJournals = countField(data, 'Журнал');
+
+    function updateChart(chart, counts, label, colors=null){
+        chart.data.labels = Object.keys(counts);
+        chart.data.datasets[0].data = Object.values(counts);
+        chart.data.datasets[0].label = label;
+        if(colors){
+            chart.data.datasets[0].backgroundColor = Object.keys(counts).map(k=>colors[k]||'rgba(54,162,235,0.6)');
+        }
+        chart.update();
+    }
+
+    if(!chartYears) chartYears = new Chart(document.getElementById('chartYears').getContext('2d'), {type:'bar', data:{labels:[], datasets:[{label:'', data:[], backgroundColor:'rgba(54,162,235,0.6)'}]}, options:{responsive:true, maintainAspectRatio:false}});
+    if(!chartRoles) chartRoles = new Chart(document.getElementById('chartRoles').getContext('2d'), {type:'bar', data:{labels:[], datasets:[{label:'', data:[], backgroundColor:[]}]}, options:{responsive:true, maintainAspectRatio:false}});
+    if(!chartJournals) chartJournals = new Chart(document.getElementById('chartJournals').getContext('2d'), {type:'bar', data:{labels:[], datasets:[{label:'', data:[], backgroundColor:'rgba(255,159,64,0.6)'}]}, options:{responsive:true, maintainAspectRatio:false}});
+
+    updateChart(chartYears, countsYears, 'Количество записок');
+    updateChart(chartRoles, countsRoles, 'Количество авторов', roleColors);
+    updateChart(chartJournals, countsJournals, 'Количество записок');
+}
+
+// Обновление таблицы при фильтре
+function applyFilters(table, data){
+    const role = document.getElementById('filterRole').value;
+    const journal = document.getElementById('filterJournal').value;
+    const year = document.getElementById('filterYear').value;
+
+    const filteredData = data.filter(r => 
+        (!role || r['Род деятельности на момент публикации текста']===role) &&
+        (!journal || r['Журнал']===journal) &&
+        (!year || r['Дата посещения Святой земли']===year)
+    );
+
+    table.clear().rows.add(filteredData).draw();
+    drawCharts(filteredData);
+}
+
+// Загрузка CSV
+Papa.parse('pilgrims.csv', {
+    download:true,
+    header:true,
+    skipEmptyLines:true,
+    complete:function(results){
+        const data = results.data;
+
+        // Заполняем фильтры уникальными значениями
+        const roles = [...new Set(data.map(r=>r['Род деятельности на момент публикации текста']).filter(Boolean))];
+        const journals = [...new Set(data.map(r=>r['Журнал']).filter(Boolean))];
+        const years = [...new Set(data.map(r=>r['Дата посещения Святой земли']).filter(Boolean))];
+
+        const roleSelect = document.getElementById('filterRole');
+        roles.forEach(r=>roleSelect.innerHTML += `<option value="${r}">${r}</option>`);
+        const journalSelect = document.getElementById('filterJournal');
+        journals.forEach(j=>journalSelect.innerHTML += `<option value="${j}">${j}</option>`);
+        const yearSelect = document.getElementById('filterYear');
+        years.forEach(y=>yearSelect.innerHTML += `<option value="${y}">${y}</option>`);
+
+        const columns = Object.keys(data[0]).map(key=>({
+            title:key,
+            data:key,
+            render:function(d){ 
+                if(key==='Род деятельности на момент публикации текста'){
+                    const color = roleColors[d]||'inherit';
+                    return `<span style="background-color:${color}; padding:2px 6px; border-radius:3px;">${d}</span>`;
+                }
+                return d;
+            }
+        }));
+
+        const table = $('#pilgrimTable').DataTable({data:data, columns:columns, pageLength:10, lengthMenu:[5,10,25,50], scrollX:true});
+
+        // Подключаем фильтры
+        document.getElementById('filterRole').addEventListener('change',()=>applyFilters(table,data));
+        document.getElementById('filterJournal').addEventListener('change',()=>applyFilters(table,data));
+        document.getElementById('filterYear').addEventListener('change',()=>applyFilters(table,data));
+
+        drawCharts(data);
+    },
+    error: function(err){ console.error(err); }
+});
+</script>
+
+</body>
+</html>
