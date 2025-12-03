@@ -1,18 +1,30 @@
 fetch('pilgrims.csv')
   .then(response => response.text())
   .then(text => {
+    // Разбиваем CSV на строки и колонки
     const rows = text.trim().split('\n').map(r => r.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/)); 
     const header = rows[0];
 
-    // Находим индексы колонок
+    // Индексы колонок
     const yearIndex = header.indexOf("Дата посещения Святой земли");
     const roleIndex = header.indexOf("Род деятельности на момент публикации текста");
     const journalIndex = header.indexOf("Журнал");
 
-    const years = [];
-    const roles = [];
-    const journals = [];
+    // Создаём HTML-таблицу
+    const tableContainer = document.getElementById('table-container');
+    let html = '<table><tr>';
+    header.forEach(h => html += `<th>${h}</th>`);
+    html += '</tr>';
+    rows.slice(1).forEach(r => {
+      html += '<tr>';
+      r.forEach(c => html += `<td>${c}</td>`);
+      html += '</tr>';
+    });
+    html += '</table>';
+    tableContainer.innerHTML = html;
 
+    // Собираем данные для графиков
+    const years = [], roles = [], journals = [];
     rows.slice(1).forEach(r => {
       if (r[yearIndex]) years.push(r[yearIndex].trim());
       if (r[roleIndex]) roles.push(r[roleIndex].trim());
@@ -35,12 +47,7 @@ fetch('pilgrims.csv')
       });
     }
 
-    // График по годам
     drawChart('chartYears', Object.keys(countsYears), Object.values(countsYears), 'Количество записок');
-
-    // График по ролям
     drawChart('chartRoles', Object.keys(countsRoles), Object.values(countsRoles), 'Количество авторов');
-
-    // График по журналам
     drawChart('chartJournals', Object.keys(countsJournals), Object.values(countsJournals), 'Количество записок');
   });
