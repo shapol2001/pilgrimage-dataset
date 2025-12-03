@@ -8,7 +8,7 @@
         body { font-family: Arial, sans-serif; margin: 20px; }
         table { border-collapse: collapse; width: 100%; margin-top: 20px; }
         th, td { border: 1px solid #aaa; padding: 5px; text-align: left; }
-        canvas { margin: 40px 0; }
+        canvas { margin: 40px 0; max-width: 100%; height: 300px; }
     </style>
 </head>
 <body>
@@ -20,9 +20,9 @@
 <div id="table-container"></div>
 
 <h2>Графики</h2>
-<canvas id="chartYears" width="600" height="300"></canvas>
-<canvas id="chartRoles" width="600" height="300"></canvas>
-<canvas id="chartJournals" width="600" height="300"></canvas>
+<canvas id="chartYears"></canvas>
+<canvas id="chartRoles"></canvas>
+<canvas id="chartJournals"></canvas>
 
 <script src="script.js"></script>
 </body>
