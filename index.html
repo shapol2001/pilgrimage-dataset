@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <title>База паломнических текстов</title>
 
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+
 <!-- Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <!-- PapaParse -->
@@ -14,83 +17,5 @@
 <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
 
 <style>
-body { font-family: Arial, sans-serif; margin: 20px; }
-button { margin-bottom: 10px; padding: 6px 12px; font-size: 14px; cursor: pointer; }
-
-/* Контейнер dashboard */
-.dashboard { display: flex; gap: 20px; }
-
-/* Таблица слева */
-#table-container { flex: 1 1 100%; min-width: 400px; transition: flex 0.3s; }
-
-/* Графики справа */
-#charts-container { flex: 1 1 0%; display: flex; flex-direction: column; gap: 20px; max-width: 0; overflow: hidden; transition: max-width 0.3s, flex 0.3s; }
-
-/* Когда графики показаны */
-#charts-container.show { flex: 1 1 35%; max-width: 600px; }
-
-canvas { width: 100% !important; height: 300px !important; }
-.dataTables_wrapper { margin-top: 20px; }
-</style>
-</head>
-<body>
-
-<h1>База паломнических текстов</h1>
-<p>Данные берутся из <code>pilgrims.csv</code></p>
-
-<button id="toggleCharts">Показать статистику</button>
-
-<div class="dashboard">
-    <div id="table-container">
-        <table id="pilgrimTable" class="display" style="width:100%"></table>
-    </div>
-    <div id="charts-container">
-        <canvas id="chartYears"></canvas>
-        <canvas id="chartRoles"></canvas>
-        <canvas id="chartJournals"></canvas>
-    </div>
-</div>
-
-<script>
-let chartYears, chartRoles, chartJournals;
-
-// Цвета для ролей
-const roleColors = {
-    'архимандрит':'rgba(255, 99, 132, 0.6)',
-    'протоирей':'rgba(54, 162, 235, 0.6)',
-    'чиновник':'rgba(255, 206, 86, 0.6)'
-};
-
-// Построение графиков
-function drawCharts(data) {
-    function countField(arr, field) {
-        const counts = {};
-        arr.forEach(r => {
-            let val = r[field];
-            if (val) counts[val] = (counts[val] || 0) + 1;
-        });
-        return counts;
-    }
-
-    const countsYears = countField(data, 'Дата посещения Святой земли');
-    const countsRoles = countField(data, 'Род деятельности на момент публикации текста');
-    const countsJournals = countField(data, 'Журнал');
-
-    function updateChart(chart, counts, label, colors=null) {
-        chart.data.labels = Object.keys(counts);
-        chart.data.datasets[0].data = Object.values(counts);
-        chart.data.datasets[0].label = label;
-        if(colors){
-            chart.data.datasets[0].backgroundColor = Object.keys(counts).map(k => colors[k] || 'rgba(54, 162, 235, 0.6)');
-        }
-        chart.update();
-    }
-
-    if (!chartYears) {
-        chartYears = new Chart(document.getElementById('chartYears').getContext('2d'), { type:'bar', data:{labels:[], datasets:[{label:'', data:[], backgroundColor:'rgba(54,162,235,0.6)'}]}, options:{responsive:true, maintainAspectRatio:false} });
-    }
-    if (!chartRoles) {
-        chartRoles = new Chart(document.getElementById('chartRoles').getContext('2d'), { type:'bar', data:{labels:[], datasets:[{label:'', data:[], backgroundColor:[]}]}, options:{responsive:true, maintainAspectRatio:false} });
-    }
-    if (!chartJournals) {
-        chartJournals = new Chart(document.getElementById('chartJournals').getContext('2d'), { type:'bar', data:{labels:[], datasets:[{label:'', data:[], backgroundColor:'rgba(255,159,64,0.6)'}]}, options:{responsive:true, maintainAspectRatio:false} }
+body {
+    font-family: 'Roboto', Arial, sans-serif
