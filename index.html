@@ -16,8 +16,115 @@
 <style>
 body { font-family: Arial, sans-serif; margin: 20px; }
 canvas { margin: 40px 0; max-width: 100%; height: 300px; }
+.dataTables_wrapper { margin-top: 20px; }
 </style>
 </head>
 <body>
 
-<h
+<h1>База паломнических текстов</h1>
+<p>Данные берутся из <code>pilgrims.csv</code></p>
+
+<h2>Таблица</h2>
+<table id="pilgrimTable" class="display" style="width:100%"></table>
+
+<h2>Графики</h2>
+<canvas id="chartYears"></canvas>
+<canvas id="chartRoles"></canvas>
+<canvas id="chartJournals"></canvas>
+
+<script>
+let chartYears, chartRoles, chartJournals;
+
+// Цвета для ролей (опционально)
+const roleColors = {
+    'архимандрит':'rgba(255, 99, 132, 0.6)',
+    'протоирей':'rgba(54, 162, 235, 0.6)',
+    'чиновник':'rgba(255, 206, 86, 0.6)'
+};
+
+// Построение графиков
+function drawCharts(data) {
+    function countField(arr, field) {
+        const counts = {};
+        arr.forEach(r => {
+            let val = r[field];
+            if (val) counts[val] = (counts[val] || 0) + 1;
+        });
+        return counts;
+    }
+
+    const countsYears = countField(data, 'Дата посещения Святой земли');
+    const countsRoles = countField(data, 'Род деятельности на момент публикации текста');
+    const countsJournals = countField(data, 'Журнал');
+
+    function updateChart(chart, counts, label, colors=null) {
+        chart.data.labels = Object.keys(counts);
+        chart.data.datasets[0].data = Object.values(counts);
+        chart.data.datasets[0].label = label;
+        if(colors){
+            chart.data.datasets[0].backgroundColor = Object.keys(counts).map(k => colors[k] || 'rgba(54, 162, 235, 0.6)');
+        }
+        chart.update();
+    }
+
+    if (!chartYears) {
+        chartYears = new Chart(document.getElementById('chartYears').getContext('2d'), { type:'bar', data:{labels:[], datasets:[{label:'', data:[], backgroundColor:'rgba(54,162,235,0.6)'}]}, options:{responsive:true, maintainAspectRatio:false} });
+    }
+    if (!chartRoles) {
+        chartRoles = new Chart(document.getElementById('chartRoles').getContext('2d'), { type:'bar', data:{labels:[], datasets:[{label:'', data:[], backgroundColor:[]}]}, options:{responsive:true, maintainAspectRatio:false} });
+    }
+    if (!chartJournals) {
+        chartJournals = new Chart(document.getElementById('chartJournals').getContext('2d'), { type:'bar', data:{labels:[], datasets:[{label:'', data:[], backgroundColor:'rgba(255,159,64,0.6)'}]}, options:{responsive:true, maintainAspectRatio:false} });
+    }
+
+    updateChart(chartYears, countsYears, 'Количество записок');
+    updateChart(chartRoles, countsRoles, 'Количество авторов', roleColors);
+    updateChart(chartJournals, countsJournals, 'Количество записок');
+}
+
+// Загружаем CSV через PapaParse
+Papa.parse('pilgrims.csv', {
+    download: true,
+    header: true,
+    skipEmptyLines: true,
+    complete: function(results) {
+        const data = results.data;
+
+        // --- Все колонки + интерактивная таблица с прокруткой ---
+        const columns = Object.keys(data[0]).map(key => ({
+            title: key,
+            data: key,
+            render: function(data, type, row){
+                if(key==='Род деятельности на момент публикации текста'){
+                    const color = roleColors[data] || 'inherit';
+                    return `<span style="background-color:${color}; padding:2px 6px; border-radius:3px;">${data}</span>`;
+                }
+                return data;
+            }
+        }));
+
+        const table = $('#pilgrimTable').DataTable({
+            data: data,
+            columns: columns,
+            pageLength: 10,
+            lengthMenu: [5,10,25,50],
+            scrollX: true, // горизонтальная прокрутка
+            initComplete: function () {
+                drawCharts(data);
+            }
+        });
+
+        // Обновляем графики при фильтре
+        table.on('search.dt', function() {
+            const filteredData = table.rows({filter:'applied'}).data().toArray();
+            drawCharts(filteredData);
+        });
+    },
+    error: function(err) {
+        console.error('Ошибка загрузки CSV:', err);
+    }
+});
+</script>
+
+</body>
+</html>
