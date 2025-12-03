@@ -1,29 +1,23 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <title>База паломнических текстов</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <style>
-        body { font-family: Arial, sans-serif; margin: 20px; }
-        table { border-collapse: collapse; width: 100%; margin-top: 20px; }
-        th, td { border: 1px solid #aaa; padding: 5px; text-align: left; }
-        canvas { margin: 40px 0; max-width: 100%; height: 300px; }
-    </style>
+<meta charset="UTF-8">
+<title>База паломнических текстов</title>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<!-- PapaParse -->
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+<!-- DataTables CSS/JS -->
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+
+<style>
+body { font-family: Arial, sans-serif; margin: 20px; }
+canvas { margin: 40px 0; max-width: 100%; height: 300px; }
+</style>
 </head>
 <body>
 
-<h1>База паломнических текстов</h1>
-<p>Данные берутся из <code>pilgrims.csv</code></p>
-
-<h2>Данные таблицы</h2>
-<div id="table-container"></div>
-
-<h2>Графики</h2>
-<canvas id="chartYears"></canvas>
-<canvas id="chartRoles"></canvas>
-<canvas id="chartJournals"></canvas>
-
-<script src="script.js"></script>
-</body>
-</html>
+<h
