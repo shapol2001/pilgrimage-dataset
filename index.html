@@ -15,11 +15,21 @@
 
 <style>
 body { font-family: Arial, sans-serif; margin: 20px; }
-.container { display: flex; flex-wrap: wrap; gap: 20px; }
-#table-container { flex: 1 1 60%; min-width: 400px; }
-#charts-container { flex: 1 1 35%; display: none; flex-direction: column; gap: 20px; }
-canvas { width: 100% !important; height: 300px !important; }
 button { margin-bottom: 10px; padding: 6px 12px; font-size: 14px; cursor: pointer; }
+
+/* Контейнер dashboard */
+.dashboard { display: flex; gap: 20px; }
+
+/* Таблица слева */
+#table-container { flex: 1 1 100%; min-width: 400px; transition: flex 0.3s; }
+
+/* Графики справа */
+#charts-container { flex: 1 1 0%; display: flex; flex-direction: column; gap: 20px; max-width: 0; overflow: hidden; transition: max-width 0.3s, flex 0.3s; }
+
+/* Когда графики показаны */
+#charts-container.show { flex: 1 1 35%; max-width: 600px; }
+
+canvas { width: 100% !important; height: 300px !important; }
 .dataTables_wrapper { margin-top: 20px; }
 </style>
 </head>
@@ -30,7 +40,7 @@ button { margin-bottom: 10px; padding: 6px 12px; font-size: 14px; cursor: pointe
 
 <button id="toggleCharts">Показать статистику</button>
 
-<div class="container">
+<div class="dashboard">
     <div id="table-container">
         <table id="pilgrimTable" class="display" style="width:100%"></table>
     </div>
@@ -44,7 +54,7 @@ button { margin-bottom: 10px; padding: 6px 12px; font-size: 14px; cursor: pointe
 <script>
 let chartYears, chartRoles, chartJournals;
 
-// Цвета для ролей (опционально)
+// Цвета для ролей
 const roleColors = {
     'архимандрит':'rgba(255, 99, 132, 0.6)',
     'протоирей':'rgba(54, 162, 235, 0.6)',
@@ -83,68 +93,4 @@ function drawCharts(data) {
         chartRoles = new Chart(document.getElementById('chartRoles').getContext('2d'), { type:'bar', data:{labels:[], datasets:[{label:'', data:[], backgroundColor:[]}]}, options:{responsive:true, maintainAspectRatio:false} });
     }
     if (!chartJournals) {
-        chartJournals = new Chart(document.getElementById('chartJournals').getContext('2d'), { type:'bar', data:{labels:[], datasets:[{label:'', data:[], backgroundColor:'rgba(255,159,64,0.6)'}]}, options:{responsive:true, maintainAspectRatio:false} });
-    }
-
-    updateChart(chartYears, countsYears, 'Количество записок');
-    updateChart(chartRoles, countsRoles, 'Количество авторов', roleColors);
-    updateChart(chartJournals, countsJournals, 'Количество записок');
-}
-
-// Переключение видимости графиков
-document.getElementById('toggleCharts').addEventListener('click', function() {
-    const container = document.getElementById('charts-container');
-    if(container.style.display === 'none'){
-        container.style.display = 'flex';
-        this.textContent = 'Скрыть статистику';
-    } else {
-        container.style.display = 'none';
-        this.textContent = 'Показать статистику';
-    }
-});
-
-// Загружаем CSV через PapaParse
-Papa.parse('pilgrims.csv', {
-    download: true,
-    header: true,
-    skipEmptyLines: true,
-    complete: function(results) {
-        const data = results.data;
-
-        const columns = Object.keys(data[0]).map(key => ({
-            title: key,
-            data: key,
-            render: function(data, type, row){
-                if(key==='Род деятельности на момент публикации текста'){
-                    const color = roleColors[data] || 'inherit';
-                    return `<span style="background-color:${color}; padding:2px 6px; border-radius:3px;">${data}</span>`;
-                }
-                return data;
-            }
-        }));
-
-        const table = $('#pilgrimTable').DataTable({
-            data: data,
-            columns: columns,
-            pageLength: 10,
-            lengthMenu: [5,10,25,50],
-            scrollX: true,
-            initComplete: function () {
-                drawCharts(data);
-            }
-        });
-
-        // Обновляем графики при фильтре
-        table.on('search.dt', function() {
-            const filteredData = table.rows({filter:'applied'}).data().toArray();
-            drawCharts(filteredData);
-        });
-    },
-    error: function(err) {
-        console.error('Ошибка загрузки CSV:', err);
-    }
-});
-</script>
-
-</body>
-</html>
+        chartJournals = new Chart(document.getElementById('chartJournals').getContext('2d'), { type:'bar', data:{labels:[], datasets:[{label:'', data:[], backgroundColor:'rgba(255,159,64,0.6)'}]}, options:{responsive:true, maintainAspectRatio:false} }
