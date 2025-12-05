@@ -33,7 +33,7 @@
   <button class="btn btn-secondary m-1" onclick="plotTimeline()">Показать timeline</button>
 
   <div id="chart"></div>
-  <div id="network" style="height:500px;"></div>
+  <div id="network" style="height:600px;"></div>
   <div id="timeline" style="height:500px;"></div>
 
   <!-- JQuery + DataTables -->
@@ -125,9 +125,8 @@
           nodes.push({
             id: author,
             label: author,
-            group: "author",
             shape: "dot",
-            size: 25
+            size: 30
           });
           nodeSet.add(author);
         }
@@ -136,9 +135,8 @@
           nodes.push({
             id: journal,
             label: journal,
-            group: "journal",
             shape: "square",
-            size: 25
+            size: 30
           });
           nodeSet.add(journal);
         }
@@ -157,7 +155,10 @@
           font: { size: 16, color: "#000", face: "Arial" },
           borderWidth: 2
         },
-        edges: { smooth: true, color: { color: "#888" } }
+        edges: {
+          smooth: true,
+          color: { color: "#888" }
+        }
       };
       new vis.Network(container, data, options);
     }
