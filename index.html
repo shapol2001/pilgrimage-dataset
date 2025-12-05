@@ -55,7 +55,7 @@
       })
       .then(csv => {
         const rows = csv.split("\n").filter(r => r.trim() !== "").map(r => r.split(","));
-        const headers = rows[0];
+        const headers = rows[0].map(h => h.trim());
         const data = rows.slice(1);
 
         window.pilgrimsData = { headers, data };
@@ -139,21 +139,39 @@
         const journal = row[journalIndex].trim();
         if (!author || !journal) return;
 
-        if (!nodeSet.has(author)) { nodes.push({ id: author, label: author, group: "author" }); nodeSet.add(author); }
-        if (!nodeSet.has(journal)) { nodes.push({ id: journal, label: journal, group: "journal" }); nodeSet.add(journal); }
+        if (!nodeSet.has(author)) {
+          nodes.push({
+            id: author,
+            label: author, 
+            group: "author",
+            font: { size: 14, color: "#000" },
+            shape: "dot",
+            size: 20
+          });
+          nodeSet.add(author);
+        }
+
+        if (!nodeSet.has(journal)) {
+          nodes.push({
+            id: journal,
+            label: journal,
+            group: "journal",
+            font: { size: 14, color: "#000" },
+            shape: "square",
+            size: 20
+          });
+          nodeSet.add(journal);
+        }
 
         edges.push({ from: author, to: journal });
       });
-
-      console.log("Nodes:", nodes);   // можно удалить позже
-      console.log("Edges:", edges);
 
       const container = document.getElementById("network");
       const data = { nodes: new vis.DataSet(nodes), edges: new vis.DataSet(edges) };
       const options = {
         physics: { enabled: true, barnesHut: { gravitationalConstant: -30000, centralGravity: 0.1, springLength: 150, springConstant: 0.02 } },
-        nodes: { shape: "dot", size: 15, font: { size: 14 }, scaling: { min: 10, max: 40 } },
-        edges: { color: { color: "#888" }, width: 1, smooth: true }
+        nodes: { borderWidth: 1, shadow: true },
+        edges: { smooth: true }
       };
       new vis.Network(container, data, options);
     }
@@ -162,9 +180,9 @@
     function plotTimeline() {
       if (!checkData()) return;
 
-      const yearIndex = pilgrimsData.headers.indexOf("Дата посещения Святой земли");
-      const titleIndex = pilgrimsData.headers.indexOf("Выходные данные");
-      if (yearIndex === -1 || titleIndex === -1) { alert("Нужные колонки не найдены!"); return; }
+      const yearIndex = pilgrimsData.headers.findIndex(h => h.trim() === "Дата издания");
+      const titleIndex = pilgrimsData.headers.findIndex(h => h.trim() === "Выходные данные");
+      if (yearIndex === -1 || titleIndex === -1) { alert("Нужные колонки для Timeline не найдены!"); return; }
 
       const events = [];
       pilgrimsData.data.forEach(row => {
@@ -180,7 +198,10 @@
         text: events.map(e => e.title),
         mode: "markers",
         type: "scatter"
-      }], { title: "Timeline публикаций", yaxis: { visible: false } });
+      }], {
+        title: "Timeline публикаций",
+        yaxis: { visible: false }
+      });
     }
   </script>
 </body>
