@@ -54,7 +54,7 @@
         return response.text();
       })
       .then(csv => {
-        const rows = csv.split("\n").filter(r => r.trim() !== "").map(r => r.split(","));
+        const rows = csv.split("\n").filter(r => r.trim() !== "").map(r => r.split("\t"));
         const headers = rows[0].map(h => h.trim());
         const data = rows.slice(1);
 
@@ -142,7 +142,7 @@
         if (!nodeSet.has(author)) {
           nodes.push({
             id: author,
-            label: author, 
+            label: author,
             group: "author",
             font: { size: 14, color: "#000" },
             shape: "dot",
@@ -181,7 +181,7 @@
       if (!checkData()) return;
 
       const yearIndex = pilgrimsData.headers.findIndex(h => h.trim() === "Дата издания");
-      const titleIndex = pilgrimsData.headers.findIndex(h => h.trim() === "Выходные данные");
+      const titleIndex = pilgrimsData.headers.findIndex(h => h.trim() === "Название");
       if (yearIndex === -1 || titleIndex === -1) { alert("Нужные колонки для Timeline не найдены!"); return; }
 
       const events = [];
