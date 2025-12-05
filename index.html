@@ -13,10 +13,6 @@
   <style>
     body { padding: 30px; }
     #chart, #network, #cloud, #timeline { margin-top: 40px; }
-  </style>
-  <style>
-    body { padding: 30px; }
-    #chart, #network, #cloud, #timeline { margin-top: 40px; }
     .tooltip {
       position: absolute;
       background: #fff;
@@ -70,85 +66,95 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/d3-cloud/1.2.5/d3.layout.cloud.min.js"></script>
 
   <script>
-    fetch("pilgrims.csv")
-      .then((response) => response.text())
-      .then((csv) => {
-        const rows = csv.split("\n").map((r) => r.split(","));
+    // Загрузка CSV
+    fetch("./pilgrims.csv")
+      .then(response => {
+        if (!response.ok) throw new Error("CSV файл не найден");
+        return response.text();
+      })
+      .then(csv => {
+        const rows = csv.split("\n").filter(r => r.trim() !== "").map(r => r.split(","));
         const headers = rows[0];
         const data = rows.slice(1);
 
+        window.pilgrimsData = { headers, data };
+
+        // Инициализация таблицы
         $("#pilgrimsTable").DataTable({
           data: data,
-          columns: headers.map((h) => ({ title: h })),
+          columns: headers.map(h => ({ title: h }))
         });
 
-        window.pilgrimsData = { headers, data };
+        // Автоматически построить первый график
+        plotByYear();
+      })
+      .catch(err => {
+        console.error("Ошибка загрузки CSV:", err);
+        alert("Не удалось загрузить данные. Проверьте путь к pilgrims.csv");
       });
 
+    function checkData() {
+      if (!window.pilgrimsData) {
+        alert("Данные ещё не загружены!");
+        return false;
+      }
+      return true;
+    }
+
     function plotByYear() {
+      if (!checkData()) return;
+
       const yearIndex = pilgrimsData.headers.indexOf("year");
       const counts = {};
-      pilgrimsData.data.forEach((row) => {
+      pilgrimsData.data.forEach(row => {
         const year = row[yearIndex];
         if (year) counts[year] = (counts[year] || 0) + 1;
       });
 
-      Plotly.newPlot(
-        "chart",
-        [
-          {
-            x: Object.keys(counts),
-            y: Object.values(counts),
-            type: "bar",
-          },
-        ],
-        { title: "Публикации по годам" }
-      );
+      Plotly.newPlot("chart", [{
+        x: Object.keys(counts),
+        y: Object.values(counts),
+        type: "bar"
+      }], { title: "Публикации по годам" });
     }
 
     function plotByRegion() {
+      if (!checkData()) return;
+
       const index = pilgrimsData.headers.indexOf("region");
       const counts = {};
-      pilgrimsData.data.forEach((row) => {
+      pilgrimsData.data.forEach(row => {
         const region = row[index];
         if (region) counts[region] = (counts[region] || 0) + 1;
       });
 
-      Plotly.newPlot(
-        "chart",
-        [
-          {
-            labels: Object.keys(counts),
-            values: Object.values(counts),
-            type: "pie",
-          },
-        ],
-        { title: "География паломничеств" }
-      );
+      Plotly.newPlot("chart", [{
+        labels: Object.keys(counts),
+        values: Object.values(counts),
+        type: "pie"
+      }], { title: "География паломничеств" });
     }
 
     function plotByAuthor() {
+      if (!checkData()) return;
+
       const index = pilgrimsData.headers.indexOf("author");
       const counts = {};
-      pilgrimsData.data.forEach((row) => {
+      pilgrimsData.data.forEach(row => {
         const author = row[index];
         if (author) counts[author] = (counts[author] || 0) + 1;
       });
 
-      Plotly.newPlot(
-        "chart",
-        [
-          {
-            x: Object.keys(counts),
-            y: Object.values(counts),
-            type: "bar",
-          },
-        ],
-        { title: "Активность авторов" }
-      );
+      Plotly.newPlot("chart", [{
+        x: Object.keys(counts),
+        y: Object.values(counts),
+        type: "bar"
+      }], { title: "Активность авторов" });
     }
 
     function renderNetwork() {
+      if (!checkData()) return;
+
       const authorIndex = pilgrimsData.headers.indexOf("author");
       const journalIndex = pilgrimsData.headers.indexOf("journal");
 
@@ -156,20 +162,13 @@
       const edges = [];
       const nodeSet = new Set();
 
-      pilgrimsData.data.forEach((row) => {
+      pilgrimsData.data.forEach(row => {
         const author = row[authorIndex];
         const journal = row[journalIndex];
         if (!author || !journal) return;
 
-        if (!nodeSet.has(author)) {
-          nodes.push({ id: author, label: author, group: "author" });
-          nodeSet.add(author);
-        }
-
-        if (!nodeSet.has(journal)) {
-          nodes.push({ id: journal, label: journal, group: "journal" });
-          nodeSet.add(journal);
-        }
+        if (!nodeSet.has(author)) { nodes.push({ id: author, label: author, group: "author" }); nodeSet.add(author); }
+        if (!nodeSet.has(journal)) { nodes.push({ id: journal, label: journal, group: "journal" }); nodeSet.add(journal); }
 
         edges.push({ from: author, to: journal });
       });
@@ -177,44 +176,26 @@
       const container = document.getElementById("network");
       const data = { nodes: new vis.DataSet(nodes), edges: new vis.DataSet(edges) };
       const options = {
-        physics: {
-          enabled: true,
-          barnesHut: {
-            gravitationalConstant: -30000,
-            centralGravity: 0.1,
-            springLength: 150,
-            springConstant: 0.02,
-          }
-        },
-        nodes: {
-          shape: "dot",
-          size: 15,
-          font: { size: 14 },
-          scaling: { min: 10, max: 40 }
-        },
-        edges: {
-          color: { color: "#888" },
-          width: 1,
-          smooth: true
-        }
+        physics: { enabled: true, barnesHut: { gravitationalConstant: -30000, centralGravity: 0.1, springLength: 150, springConstant: 0.02 } },
+        nodes: { shape: "dot", size: 15, font: { size: 14 }, scaling: { min: 10, max: 40 } },
+        edges: { color: { color: "#888" }, width: 1, smooth: true }
       };
       new vis.Network(container, data, options);
     }
 
     function renderCloud() {
+      if (!checkData()) return;
+
       const textIndex = pilgrimsData.headers.indexOf("keywords");
       const words = [];
-
-      pilgrimsData.data.forEach((row) => {
+      pilgrimsData.data.forEach(row => {
         const field = row[textIndex];
         if (!field) return;
-        field.split(/\s+/).forEach((w) => words.push(w.toLowerCase()));
+        field.split(/\s+/).forEach(w => words.push(w.toLowerCase()));
       });
 
       const freq = {};
-      words.forEach((w) => {
-        freq[w] = (freq[w] || 0) + 1;
-      });
+      words.forEach(w => { freq[w] = (freq[w] || 0) + 1; });
 
       const entries = Object.entries(freq).map(([text, size]) => ({ text, size: size * 5 }));
 
@@ -224,13 +205,12 @@
         .words(entries)
         .padding(5)
         .rotate(() => ~~(Math.random() * 2) * 90)
-        .fontSize((d) => d.size)
+        .fontSize(d => d.size)
         .on("end", drawCloud)
         .start();
 
       function drawCloud(words) {
-        d3.select("#cloud")
-          .append("svg")
+        d3.select("#cloud").append("svg")
           .attr("width", 600)
           .attr("height", 500)
           .append("g")
@@ -239,38 +219,35 @@
           .data(words)
           .enter()
           .append("text")
-          .style("font-size", (d) => d.size + "px")
-          .style("fill", () => "#000")
+          .style("font-size", d => d.size + "px")
+          .style("fill", "#000")
           .attr("text-anchor", "middle")
-          .attr("transform", (d) => `translate(${d.x},${d.y})rotate(${d.rotate})`)
-          .text((d) => d.text);
+          .attr("transform", d => `translate(${d.x},${d.y})rotate(${d.rotate})`)
+          .text(d => d.text);
       }
     }
 
     function plotTimeline() {
+      if (!checkData()) return;
+
       const yearIndex = pilgrimsData.headers.indexOf("year");
       const titleIndex = pilgrimsData.headers.indexOf("title");
 
-      const events = pilgrimsData.data.map((row) => ({
+      const events = pilgrimsData.data.map(row => ({
         year: row[yearIndex],
         title: row[titleIndex],
       }));
 
-      Plotly.newPlot(
-        "timeline",
-        [
-          {
-            x: events.map((e) => e.year),
-            y: events.map((e) => 1),
-            text: events.map((e) => e.title),
-            mode: "markers",
-            type: "scatter",
-          },
-        ],
-        { title: "Timeline публикаций" }
-      );
+      Plotly.newPlot("timeline", [{
+        x: events.map(e => e.year),
+        y: events.map(e => 1),
+        text: events.map(e => e.title),
+        mode: "markers",
+        type: "scatter"
+      }], { title: "Timeline публикаций" });
     }
   </script>
 </body>
 </html>
+
 
