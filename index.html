@@ -1,189 +1,66 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-  <meta charset="UTF-8" />
-  <title>Pilgrims Dataset — Interactive Visualizations</title>
+function renderNetwork() {
+  if (!checkData()) return;
 
-  <!-- Bootstrap -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" />
+  const nodes = [];
+  const edges = [];
+  const nodeSet = new Set();
 
-  <!-- DataTables -->
-  <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css" />
+  window.pilgrimsData.forEach(r => {
+    const author = r["Автор"]?.trim();
+    const journal = r["Журнал"]?.trim();
+    if (!author || !journal) return;
 
-  <style>
-    body { padding: 30px; }
-    #chart, #network, #timeline { margin-top: 40px; }
-  </style>
-</head>
-<body>
-  <h2>Паломнические и путевые записки</h2>
-
-  <table id="pilgrimsTable" class="display" style="width:100%"></table>
-
-  <hr />
-
-  <h4>Графики</h4>
-  <button class="btn btn-primary m-1" onclick="plotByYear()">Публикации по годам</button>
-  <button class="btn btn-primary m-1" onclick="plotByAuthor()">Активность авторов</button>
-
-  <h4 class="mt-4">Сетевой граф авторов и журналов</h4>
-  <button class="btn btn-secondary m-1" onclick="renderNetwork()">Показать сетевой граф</button>
-
-  <h4 class="mt-4">Хронологическая лента</h4>
-  <button class="btn btn-secondary m-1" onclick="plotTimeline()">Показать timeline</button>
-
-  <div id="chart"></div>
-  <div id="network" style="height:500px;"></div>
-  <div id="timeline" style="height:500px;"></div>
-
-  <!-- JQuery + DataTables -->
-  <script src="https://code.jquery.com/jquery-3.5.1.js"></script>
-  <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
-
-  <!-- Plotly -->
-  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
-
-  <!-- vis-network -->
-  <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
-
-  <!-- PapaParse для корректного чтения CSV с кавычками и переносами -->
-  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
-
-  <script>
-    // Загрузка CSV через fetch + PapaParse
-    fetch("pilgrims.csv")
-      .then(response => response.text())
-      .then(csvText => {
-        const parsed = Papa.parse(csvText, { header: true, skipEmptyLines: true });
-        window.pilgrimsData = parsed.data; // массив объектов
-
-        // DataTable
-        const headers = Object.keys(window.pilgrimsData[0]);
-        $("#pilgrimsTable").DataTable({
-          data: window.pilgrimsData.map(r => headers.map(h => r[h])),
-          columns: headers.map(h => ({ title: h }))
-        });
-
-        // Авто-построение графика по годам
-        plotByYear();
-      })
-      .catch(err => {
-        console.error("Ошибка загрузки CSV:", err);
-        alert("Не удалось загрузить CSV. Проверьте путь к pilgrims.csv");
+    // Узлы авторов
+    if (!nodeSet.has(author)) {
+      nodes.push({
+        id: author,
+        label: author,             // подпись
+        group: "author",
+        shape: "dot",
+        size: 20,
+        font: { size: 14, color: "#000", face: "Arial" } // явный шрифт и размер
       });
+      nodeSet.add(author);
+    }
 
-    function checkData() {
-      if (!window.pilgrimsData) {
-        alert("Данные ещё не загружены!");
-        return false;
+    // Узлы журналов
+    if (!nodeSet.has(journal)) {
+      nodes.push({
+        id: journal,
+        label: journal,           // подпись
+        group: "journal",
+        shape: "square",
+        size: 20,
+        font: { size: 14, color: "#000", face: "Arial" }
+      });
+      nodeSet.add(journal);
+    }
+
+    edges.push({ from: author, to: journal });
+  });
+
+  const container = document.getElementById("network");
+  const data = { nodes: new vis.DataSet(nodes), edges: new vis.DataSet(edges) };
+  const options = {
+    physics: {
+      enabled: true,
+      barnesHut: {
+        gravitationalConstant: -30000,
+        centralGravity: 0.1,
+        springLength: 150,
+        springConstant: 0.02
       }
-      return true;
+    },
+    nodes: {
+      borderWidth: 1,
+      shadow: true,
+      font: { size: 14, color: "#000", face: "Arial" }, // подписи видны
+      scaling: { min: 10, max: 30 }
+    },
+    edges: {
+      smooth: true,
+      color: { color: "#888" }
     }
-
-    // График публикаций по годам
-    function plotByYear() {
-      if (!checkData()) return;
-
-      const counts = {};
-      window.pilgrimsData.forEach(r => {
-        const year = r["Дата посещения Святой земли"]?.trim();
-        if (year) counts[year] = (counts[year] || 0) + 1;
-      });
-
-      Plotly.newPlot("chart", [{
-        x: Object.keys(counts),
-        y: Object.values(counts),
-        type: "bar"
-      }], { title: "Публикации по годам" });
-    }
-
-    // График активности авторов
-    function plotByAuthor() {
-      if (!checkData()) return;
-
-      const counts = {};
-      window.pilgrimsData.forEach(r => {
-        const author = r["Автор"]?.trim();
-        if (author) counts[author] = (counts[author] || 0) + 1;
-      });
-
-      Plotly.newPlot("chart", [{
-        x: Object.keys(counts),
-        y: Object.values(counts),
-        type: "bar"
-      }], { title: "Активность авторов" });
-    }
-
-    // Сетевой граф Автор ↔ Журнал
-    function renderNetwork() {
-      if (!checkData()) return;
-
-      const nodes = [];
-      const edges = [];
-      const nodeSet = new Set();
-
-      window.pilgrimsData.forEach(r => {
-        const author = r["Автор"]?.trim();
-        const journal = r["Журнал"]?.trim();
-        if (!author || !journal) return;
-
-        if (!nodeSet.has(author)) {
-          nodes.push({
-            id: author,
-            label: author,
-            group: "author",
-            font: { size: 14, color: "#000" },
-            shape: "dot",
-            size: 20
-          });
-          nodeSet.add(author);
-        }
-
-        if (!nodeSet.has(journal)) {
-          nodes.push({
-            id: journal,
-            label: journal,
-            group: "journal",
-            font: { size: 14, color: "#000" },
-            shape: "square",
-            size: 20
-          });
-          nodeSet.add(journal);
-        }
-
-        edges.push({ from: author, to: journal });
-      });
-
-      const container = document.getElementById("network");
-      const data = { nodes: new vis.DataSet(nodes), edges: new vis.DataSet(edges) };
-      const options = {
-        physics: { enabled: true, barnesHut: { gravitationalConstant: -30000, centralGravity: 0.1, springLength: 150, springConstant: 0.02 } },
-        nodes: { borderWidth: 1, shadow: true },
-        edges: { smooth: true }
-      };
-      new vis.Network(container, data, options);
-    }
-
-    // Timeline публикаций
-    function plotTimeline() {
-      if (!checkData()) return;
-
-      const events = window.pilgrimsData.map(r => ({
-        year: +r["Дата издания"],
-        title: r["Название"]?.replace(/\r?\n/g, " ").trim()
-      })).filter(e => e.year);
-
-      Plotly.newPlot("timeline", [{
-        x: events.map(e => e.year),
-        y: events.map(() => 1),
-        text: events.map(e => e.title),
-        mode: "markers",
-        type: "scatter"
-      }], {
-        title: "Timeline публикаций",
-        yaxis: { visible: false }
-      });
-    }
-  </script>
-</body>
-</html>
+  };
+  new vis.Network(container, data, options);
+}
