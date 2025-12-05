@@ -13,16 +13,6 @@
   <style>
     body { padding: 30px; }
     #chart, #network, #timeline { margin-top: 40px; }
-    .tooltip {
-      position: absolute;
-      background: #fff;
-      border: 1px solid #ccc;
-      padding: 5px 10px;
-      border-radius: 5px;
-      pointer-events: none;
-      font-size: 14px;
-      display: none;
-    }
   </style>
 </head>
 <body>
@@ -101,7 +91,7 @@
 
       const counts = {};
       pilgrimsData.data.forEach(row => {
-        const year = row[yearIndex];
+        const year = row[yearIndex].trim();
         if (year) counts[year] = (counts[year] || 0) + 1;
       });
 
@@ -121,7 +111,7 @@
 
       const counts = {};
       pilgrimsData.data.forEach(row => {
-        const author = row[authorIndex];
+        const author = row[authorIndex].trim();
         if (author) counts[author] = (counts[author] || 0) + 1;
       });
 
@@ -145,8 +135,8 @@
       const nodeSet = new Set();
 
       pilgrimsData.data.forEach(row => {
-        const author = row[authorIndex];
-        const journal = row[journalIndex];
+        const author = row[authorIndex].trim();
+        const journal = row[journalIndex].trim();
         if (!author || !journal) return;
 
         if (!nodeSet.has(author)) { nodes.push({ id: author, label: author, group: "author" }); nodeSet.add(author); }
@@ -154,6 +144,9 @@
 
         edges.push({ from: author, to: journal });
       });
+
+      console.log("Nodes:", nodes);   // можно удалить позже
+      console.log("Edges:", edges);
 
       const container = document.getElementById("network");
       const data = { nodes: new vis.DataSet(nodes), edges: new vis.DataSet(edges) };
@@ -173,10 +166,13 @@
       const titleIndex = pilgrimsData.headers.indexOf("Выходные данные");
       if (yearIndex === -1 || titleIndex === -1) { alert("Нужные колонки не найдены!"); return; }
 
-      const events = pilgrimsData.data.map(row => ({
-        year: row[yearIndex],
-        title: row[titleIndex],
-      }));
+      const events = [];
+      pilgrimsData.data.forEach(row => {
+        const year = row[yearIndex].trim();
+        let title = row[titleIndex] ? row[titleIndex].replace(/\r?\n/g, " ").trim() : "";
+        if (!year) return;
+        events.push({ year: +year, title });
+      });
 
       Plotly.newPlot("timeline", [{
         x: events.map(e => e.year),
@@ -184,7 +180,7 @@
         text: events.map(e => e.title),
         mode: "markers",
         type: "scatter"
-      }], { title: "Timeline публикаций" });
+      }], { title: "Timeline публикаций", yaxis: { visible: false } });
     }
   </script>
 </body>
