@@ -1,208 +1,41 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-  <meta charset="UTF-8" />
-  <title>Pilgrims Dataset — Interactive Visualizations</title>
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 
-  <!-- Bootstrap -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" />
+<script>
+fetch("pilgrims.csv")
+  .then(response => response.text())
+  .then(csvText => {
+    // Парсим CSV с помощью PapaParse
+    const parsed = Papa.parse(csvText, { header: true, skipEmptyLines: true });
+    window.pilgrimsData = parsed.data; // Массив объектов { Автор: ..., Дата издания: ..., Название: ... }
 
-  <!-- DataTables -->
-  <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css" />
+    // Таблица
+    const headers = Object.keys(window.pilgrimsData[0]);
+    $("#pilgrimsTable").DataTable({
+      data: window.pilgrimsData.map(r => headers.map(h => r[h])),
+      columns: headers.map(h => ({ title: h }))
+    });
 
-  <style>
-    body { padding: 30px; }
-    #chart, #network, #timeline { margin-top: 40px; }
-  </style>
-</head>
-<body>
-  <h2>Паломнические и путевые записки</h2>
+    plotByYear(); // первый график по умолчанию
+  });
 
-  <table id="pilgrimsTable" class="display" style="width:100%"></table>
+// Пример построения Timeline с новым CSV
+function plotTimeline() {
+  if (!window.pilgrimsData) return;
 
-  <hr />
+  const events = window.pilgrimsData.map(r => ({
+    year: +r["Дата издания"],
+    title: r["Название"]
+  })).filter(e => e.year);
 
-  <h4>Графики</h4>
-  <button class="btn btn-primary m-1" onclick="plotByYear()">Публикации по годам</button>
-  <button class="btn btn-primary m-1" onclick="plotByAuthor()">Активность авторов</button>
-
-  <h4 class="mt-4">Сетевой граф авторов и журналов</h4>
-  <button class="btn btn-secondary m-1" onclick="renderNetwork()">Показать сетевой граф</button>
-
-  <h4 class="mt-4">Хронологическая лента</h4>
-  <button class="btn btn-secondary m-1" onclick="plotTimeline()">Показать timeline</button>
-
-  <div id="chart"></div>
-  <div id="network" style="height:500px;"></div>
-  <div id="timeline" style="height:500px;"></div>
-
-  <!-- JQuery + DataTables -->
-  <script src="https://code.jquery.com/jquery-3.5.1.js"></script>
-  <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
-
-  <!-- Plotly -->
-  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
-
-  <!-- vis-network -->
-  <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
-
-  <script>
-    // Загрузка CSV
-    fetch("./pilgrims.csv")
-      .then(response => {
-        if (!response.ok) throw new Error("CSV файл не найден");
-        return response.text();
-      })
-      .then(csv => {
-        const rows = csv.split("\n").filter(r => r.trim() !== "").map(r => r.split("\t"));
-        const headers = rows[0].map(h => h.trim());
-        const data = rows.slice(1);
-
-        window.pilgrimsData = { headers, data };
-
-        // Инициализация таблицы
-        $("#pilgrimsTable").DataTable({
-          data: data,
-          columns: headers.map(h => ({ title: h }))
-        });
-
-        // Автоматически построить график по годам
-        plotByYear();
-      })
-      .catch(err => {
-        console.error("Ошибка загрузки CSV:", err);
-        alert("Не удалось загрузить данные. Проверьте путь к pilgrims.csv");
-      });
-
-    function checkData() {
-      if (!window.pilgrimsData) {
-        alert("Данные ещё не загружены!");
-        return false;
-      }
-      return true;
-    }
-
-    // График по годам
-    function plotByYear() {
-      if (!checkData()) return;
-
-      const yearIndex = pilgrimsData.headers.indexOf("Дата посещения Святой земли");
-      if (yearIndex === -1) { alert("Колонка с годами не найдена!"); return; }
-
-      const counts = {};
-      pilgrimsData.data.forEach(row => {
-        const year = row[yearIndex].trim();
-        if (year) counts[year] = (counts[year] || 0) + 1;
-      });
-
-      Plotly.newPlot("chart", [{
-        x: Object.keys(counts),
-        y: Object.values(counts),
-        type: "bar"
-      }], { title: "Публикации по годам" });
-    }
-
-    // Активность авторов
-    function plotByAuthor() {
-      if (!checkData()) return;
-
-      const authorIndex = pilgrimsData.headers.indexOf("Автор");
-      if (authorIndex === -1) { alert("Колонка с авторами не найдена!"); return; }
-
-      const counts = {};
-      pilgrimsData.data.forEach(row => {
-        const author = row[authorIndex].trim();
-        if (author) counts[author] = (counts[author] || 0) + 1;
-      });
-
-      Plotly.newPlot("chart", [{
-        x: Object.keys(counts),
-        y: Object.values(counts),
-        type: "bar"
-      }], { title: "Активность авторов" });
-    }
-
-    // Сетевой граф автор ↔ журнал
-    function renderNetwork() {
-      if (!checkData()) return;
-
-      const authorIndex = pilgrimsData.headers.indexOf("Автор");
-      const journalIndex = pilgrimsData.headers.indexOf("Журнал");
-      if (authorIndex === -1 || journalIndex === -1) { alert("Нужные колонки не найдены!"); return; }
-
-      const nodes = [];
-      const edges = [];
-      const nodeSet = new Set();
-
-      pilgrimsData.data.forEach(row => {
-        const author = row[authorIndex].trim();
-        const journal = row[journalIndex].trim();
-        if (!author || !journal) return;
-
-        if (!nodeSet.has(author)) {
-          nodes.push({
-            id: author,
-            label: author,
-            group: "author",
-            font: { size: 14, color: "#000" },
-            shape: "dot",
-            size: 20
-          });
-          nodeSet.add(author);
-        }
-
-        if (!nodeSet.has(journal)) {
-          nodes.push({
-            id: journal,
-            label: journal,
-            group: "journal",
-            font: { size: 14, color: "#000" },
-            shape: "square",
-            size: 20
-          });
-          nodeSet.add(journal);
-        }
-
-        edges.push({ from: author, to: journal });
-      });
-
-      const container = document.getElementById("network");
-      const data = { nodes: new vis.DataSet(nodes), edges: new vis.DataSet(edges) };
-      const options = {
-        physics: { enabled: true, barnesHut: { gravitationalConstant: -30000, centralGravity: 0.1, springLength: 150, springConstant: 0.02 } },
-        nodes: { borderWidth: 1, shadow: true },
-        edges: { smooth: true }
-      };
-      new vis.Network(container, data, options);
-    }
-
-    // Timeline
-    function plotTimeline() {
-      if (!checkData()) return;
-
-      const yearIndex = pilgrimsData.headers.findIndex(h => h.trim() === "Дата издания");
-      const titleIndex = pilgrimsData.headers.findIndex(h => h.trim() === "Название");
-      if (yearIndex === -1 || titleIndex === -1) { alert("Нужные колонки для Timeline не найдены!"); return; }
-
-      const events = [];
-      pilgrimsData.data.forEach(row => {
-        const year = row[yearIndex].trim();
-        let title = row[titleIndex] ? row[titleIndex].replace(/\r?\n/g, " ").trim() : "";
-        if (!year) return;
-        events.push({ year: +year, title });
-      });
-
-      Plotly.newPlot("timeline", [{
-        x: events.map(e => e.year),
-        y: events.map(() => 1),
-        text: events.map(e => e.title),
-        mode: "markers",
-        type: "scatter"
-      }], {
-        title: "Timeline публикаций",
-        yaxis: { visible: false }
-      });
-    }
-  </script>
-</body>
-</html>
+  Plotly.newPlot("timeline", [{
+    x: events.map(e => e.year),
+    y: events.map(() => 1),
+    text: events.map(e => e.title),
+    mode: "markers",
+    type: "scatter"
+  }], {
+    title: "Timeline публикаций",
+    yaxis: { visible: false }
+  });
+}
+</script>
