@@ -55,13 +55,8 @@ fetch("pilgrims.csv")
   .then(text => {
     if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1); // BOM
 
-    const parsed = Papa.parse(text, {
-      header: true,
-      skipEmptyLines: true
-    });
-
+    const parsed = Papa.parse(text, { header: true, skipEmptyLines: true });
     window.pilgrimsData = parsed.data;
-    console.log("CSV загружен:", pilgrimsData);
 
     const headers = Object.keys(pilgrimsData[0] || {});
 
@@ -70,7 +65,7 @@ fetch("pilgrims.csv")
       columns: headers.map(h => ({ title: h }))
     });
 
-    plotByYear();
+    plotByYear(); // график по умолчанию
   })
   .catch(err => {
     console.error("Ошибка загрузки CSV:", err);
@@ -92,9 +87,8 @@ function plotByYear() {
   if (!checkData()) return;
 
   const counts = {};
-
   pilgrimsData.forEach(r => {
-    let year = r["Дата посещения Святой земли"];
+    let year = r["Дата издания"];
     if (!year) return;
 
     year = year.toString().trim().replace(/[^\d]/g, "");
@@ -113,7 +107,7 @@ function plotByYear() {
     x: years,
     y: values,
     type: "bar"
-  }], { title: "Публикации по годам (Дата посещения Святой земли)" });
+  }], { title: "Публикации по годам (Дата издания)" });
 }
 
 /* =======================
