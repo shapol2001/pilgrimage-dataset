@@ -12,7 +12,7 @@
 
   <style>
     body { padding: 30px; }
-    #network, #timeline, #chart { margin-top: 40px; }
+    #chart, #network, #timeline { margin-top: 40px; }
     #network { height: 600px; border: 1px solid #aaa; }
     #timeline { height: 500px; border: 1px solid #aaa; }
   </style>
@@ -50,14 +50,10 @@
 /* =======================
    ЗАГРУЗКА CSV
    ======================= */
-
 fetch("pilgrims.csv")
   .then(r => r.text())
   .then(text => {
-
-    // Удаляем BOM, если есть
-    if (text.charCodeAt(0) === 0xFEFF)
-      text = text.slice(1);
+    if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1); // BOM
 
     const parsed = Papa.parse(text, {
       header: true,
@@ -67,7 +63,7 @@ fetch("pilgrims.csv")
     window.pilgrimsData = parsed.data;
     console.log("CSV загружен:", pilgrimsData);
 
-    const headers = Object.keys(pilgrimsData[0]);
+    const headers = Object.keys(pilgrimsData[0] || {});
 
     $("#pilgrimsTable").DataTable({
       data: pilgrimsData.map(row => headers.map(h => row[h] ?? "")),
@@ -96,22 +92,28 @@ function plotByYear() {
   if (!checkData()) return;
 
   const counts = {};
+
   pilgrimsData.forEach(r => {
-    const y = r["Дата посещения Святой земли"];
-    if (!y) return;
-    const year = y.toString().trim();
+    let year = r["Дата посещения Святой земли"];
     if (!year) return;
+
+    year = year.toString().trim().replace(/[^\d]/g, "");
+    if (year.length < 3) return;
+
+    year = parseInt(year);
+    if (isNaN(year)) return;
+
     counts[year] = (counts[year] || 0) + 1;
   });
 
-  const years = Object.keys(counts).sort();
+  const years = Object.keys(counts).sort((a,b)=>a-b);
   const values = years.map(y => counts[y]);
 
   Plotly.newPlot("chart", [{
     x: years,
     y: values,
     type: "bar"
-  }], { title: "Публикации по годам" });
+  }], { title: "Публикации по годам (Дата посещения Святой земли)" });
 }
 
 /* =======================
@@ -150,14 +152,8 @@ function renderNetwork() {
     const j = r["Журнал"]?.trim();
     if (!a || !j) return;
 
-    if (!added.has(a)) {
-      nodes.add({ id: a, label: a, shape: "dot", size: 20 });
-      added.add(a);
-    }
-    if (!added.has(j)) {
-      nodes.add({ id: j, label: j, shape: "square", size: 20 });
-      added.add(j);
-    }
+    if (!added.has(a)) { nodes.add({ id: a, label: a, shape:"dot", size:20 }); added.add(a); }
+    if (!added.has(j)) { nodes.add({ id: j, label: j, shape:"square", size:20 }); added.add(j); }
 
     edges.add({ from: a, to: j });
   });
@@ -179,35 +175,43 @@ function renderNetwork() {
 function plotTimeline() {
   if (!checkData()) return;
 
-  const events = pilgrimsData.map(r => {
+  const events = [];
+  pilgrimsData.forEach(r => {
     let y = r["Дата издания"];
-    if (!y) return null;
-
-    // убрать мусор и переводы строк
-    y = y.toString().trim().replace(/[^\d]/g, "");
-    if (y.length < 3) return null;
+    if (!y) return;
+    y = y.toString().trim().replace(/[^\d]/g,"");
+    if (y.length < 3) return;
     const year = parseInt(y);
+    if (isNaN(year)) return;
 
-    if (isNaN(year)) return null;
-
-    return {
+    events.push({
       year: year,
-      title: (r["Название"] || "").replace(/\s+/g, " ")
-    };
-  }).filter(e => e);
+      title: (r["Название"] || "").replace(/\s+/g," ")
+    });
+  });
+
+  events.sort((a,b)=>a.year-b.year);
+
+  // "Лесенка" для отображения нескольких событий в одном году
+  const yvals = {};
+  const yData = events.map(e => {
+    if (!yvals[e.year]) yvals[e.year] = 1;
+    else yvals[e.year]++;
+    return yvals[e.year];
+  });
 
   Plotly.newPlot("timeline", [{
-    x: events.map(e => e.year),
-    y: events.map(() => 1),
-    text: events.map(e => e.title),
-    mode: "markers",
-    type: "scatter"
+    x: events.map(e=>e.year),
+    y: yData,
+    text: events.map(e=>e.title),
+    mode:"markers",
+    type:"scatter",
+    marker:{ size:12 }
   }], {
-    title: "Timeline публикаций",
-    yaxis: { visible: false }
+    title:"Timeline публикаций",
+    yaxis:{ visible:false }
   });
 }
-
 </script>
 </body>
 </html>
