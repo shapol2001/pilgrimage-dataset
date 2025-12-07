@@ -21,6 +21,7 @@
 <body>
 <h2>Паломнические и путевые записки</h2>
 
+<!-- Таблица CSV всегда сверху -->
 <table id="pilgrimsTable" class="display" style="width:100%"></table>
 
 <hr/>
@@ -65,8 +66,9 @@ function loadCSV() {
     .then(text=>{
       if(text.charCodeAt(0)===0xFEFF) text=text.slice(1);
       const parsed = Papa.parse(text,{header:true,skipEmptyLines:true});
+      window.pilgrimsDataFull = parsed.data; // вся таблица
+      // Данные для визуализаций с фильтром "Неизвестно"
       window.pilgrimsData = parsed.data.filter(r=>{
-        // фильтр "Неизвестно/неизвестно"
         return !Object.values(r).some(v=>v?.trim().toLowerCase()==="неизвестно");
       });
       const headers = Object.keys(parsed.data[0]||{});
@@ -74,11 +76,11 @@ function loadCSV() {
       if($.fn.DataTable.isDataTable('#pilgrimsTable')){
         const table = $('#pilgrimsTable').DataTable();
         table.clear();
-        table.rows.add(window.pilgrimsData.map(r=>headers.map(h=>r[h]??"")));
+        table.rows.add(window.pilgrimsDataFull.map(r=>headers.map(h=>r[h]??"")));
         table.draw();
       } else {
         $("#pilgrimsTable").DataTable({
-          data: window.pilgrimsData.map(r=>headers.map(h=>r[h]??"")),
+          data: window.pilgrimsDataFull.map(r=>headers.map(h=>r[h]??"")),
           columns: headers.map(h=>({title:h}))
         });
       }
@@ -161,7 +163,6 @@ function renderNetwork(){
     {physics:{enabled:true},edges:{color:"#555"},nodes:{font:{size:16}}}
   );
 
-  // Метрики
   const totalNodes=nodes.length, totalEdges=edges.length;
   const avgDegree=(totalEdges*2/totalNodes).toFixed(2);
   document.getElementById("metricsBox").innerHTML=`Узлов: ${totalNodes}, Связей: ${totalEdges}, Средняя степень: ${avgDegree}`;
