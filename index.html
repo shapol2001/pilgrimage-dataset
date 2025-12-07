@@ -135,7 +135,7 @@ function plotByColumn(colName,title){
 }
 
 /* =======================
-   Сетевой граф автор → журнал
+   Сетевой граф автор → журнал с tooltip
 ======================= */
 function renderNetwork(){
   if(!checkData()) return;
@@ -145,19 +145,29 @@ function renderNetwork(){
     const a=r["Автор"]?.trim();
     const j=r["Журнал"]?.trim();
     if(!a||!j) return;
-    if(!nodeMap[a]) nodeMap[a]={id:a,label:a,color:"red",type:"author",degree:0};
-    if(!nodeMap[j]) nodeMap[j]={id:j,label:j,color:"blue",type:"journal",degree:0};
-    nodeMap[a].degree++; nodeMap[j].degree++;
+    if(!nodeMap[a]) nodeMap[a]={id:a,label:a,color:"red",type:"author",degree:0,count:0};
+    if(!nodeMap[j]) nodeMap[j]={id:j,label:j,color:"blue",type:"journal",degree:0,count:0};
+    nodeMap[a].degree++; nodeMap[a].count++;
+    nodeMap[j].degree++; nodeMap[j].count++;
     edges.push({from:a,to:j});
   });
   for(let k in nodeMap){
     const n=nodeMap[k];
     n.size=15+n.degree*2;
+    n.title = `${n.label}\nПубликаций: ${n.count}`; // tooltip
     nodes.push(n);
   }
-  const network=new vis.Network(document.getElementById("network"),{nodes:new vis.DataSet(nodes),edges:new vis.DataSet(edges)},{
-    physics:{enabled:true}, edges:{color:"#555"}, nodes:{font:{size:16}}
-  });
+
+  const network=new vis.Network(
+    document.getElementById("network"),
+    {nodes:new vis.DataSet(nodes),edges:new vis.DataSet(edges)},
+    {
+      physics:{enabled:true},
+      edges:{color:"#555"},
+      nodes:{font:{size:16}}
+    }
+  );
+
   // Метрики
   const totalNodes=nodes.length, totalEdges=edges.length;
   const avgDegree=(totalEdges*2/totalNodes).toFixed(2);
@@ -176,8 +186,8 @@ function renderJournalSourceNetwork(){
     const source=r["Откуда перепечатан текст"]?.trim();
     if(!journal||!source) return;
     if(["Оригинальный","Не оригинальный"].includes(source)) return;
-    if(!added.has(journal)){ nodes.add({id:journal,label:journal,shape:"square",color:"blue"}); added.add(journal);}
-    if(!added.has(source)){ nodes.add({id:source,label:source,shape:"dot",color:"orange"}); added.add(source);}
+    if(!added.has(journal)){ nodes.add({id:journal,label:journal,shape:"square",color:"blue",title:`Журнал: ${journal}`}); added.add(journal);}
+    if(!added.has(source)){ nodes.add({id:source,label:source,shape:"dot",color:"orange",title:`Источник: ${source}`}); added.add(source);}
     edges.add({from:journal,to:source});
   });
   new vis.Network(document.getElementById("network"),{nodes,edges},{
@@ -202,7 +212,14 @@ function plotTimeline(){
     events.push({year,title:(r["Название"]||"").replace(/\s+/g," ")});
   });
   events.sort((a,b)=>a.year-b.year);
-  const yvals={}; const yData=events.map(e=>{ if(!yvals[e.year]) yvals[e.year]=1; else yvals[e.year]++; return yvals[e.year]; });
+
+  // Уникальная Y координата для каждого события в году (чтобы видеть несколько публикаций в один год)
+  const yearCount = {};
+  const yData = events.map(e => {
+    yearCount[e.year] = (yearCount[e.year]||0) + 1;
+    return yearCount[e.year];
+  });
+
   Plotly.newPlot("timeline",[{
     x:events.map(e=>e.year),
     y:yData,
