@@ -11,10 +11,9 @@
 
 <style>
   body { padding: 30px; }
-  #chart, #network, #timeline { margin-top: 40px; border: 1px solid #aaa; padding: 10px; }
-  #network { height: 600px; }
-  #timeline { height: 500px; }
+  #chart { margin-top: 40px; border: 1px solid #aaa; padding: 10px; min-height:500px;}
   #metricsBox { margin-top: 10px; font-weight: bold; }
+  .btn-line { display: flex; flex-wrap: wrap; gap:10px; margin-bottom:10px; }
 </style>
 </head>
 
@@ -25,25 +24,20 @@
 
 <hr/>
 
-<h4>Графики</h4>
-<button class="btn btn-primary m-1" onclick="plotByYear()">Публикации по годам</button>
-<button class="btn btn-primary m-1" onclick="plotByAuthor()">Активность авторов</button>
-<button class="btn btn-primary m-1" onclick="plotByColumn('Образование автора','Образование авторов')">Образование авторов</button>
-<button class="btn btn-primary m-1" onclick="plotByColumn('Род деятельности на момент публикации текста','Род деятельности авторов')">Род деятельности</button>
-<button class="btn btn-primary m-1" onclick="plotByColumn('Дата посещения Святой земли','Время событий')">Время событий</button>
-
-<h4 class="mt-4">Сетевой граф авторов и журналов</h4>
-<button class="btn btn-success m-1" onclick="renderNetwork()">Показать сетевой граф</button>
-<h4 class="mt-4">Сетевой граф журнал → источник</h4>
-<button class="btn btn-secondary m-1" onclick="renderJournalSourceNetwork()">Сеть журнал → источник</button>
-
-<h4 class="mt-4">Хронологическая лента</h4>
-<button class="btn btn-success m-1" onclick="plotTimeline()">Показать timeline</button>
+<h4>Визуализации</h4>
+<div class="btn-line">
+  <button class="btn btn-primary" onclick="plotByYear()">Публикации по годам</button>
+  <button class="btn btn-primary" onclick="plotByAuthor()">Активность авторов</button>
+  <button class="btn btn-primary" onclick="plotByColumn('Образование автора','Образование авторов')">Образование</button>
+  <button class="btn btn-primary" onclick="plotByColumn('Род деятельности на момент публикации текста','Род деятельности')">Род деятельности</button>
+  <button class="btn btn-primary" onclick="plotByColumn('Дата посещения Святой земли','Время событий')">Время событий</button>
+  <button class="btn btn-success" onclick="renderNetwork()">Сеть автор → журнал</button>
+  <button class="btn btn-success" onclick="renderJournalSourceNetwork()">Сеть журнал → источник</button>
+  <button class="btn btn-success" onclick="plotTimeline()">Timeline</button>
+</div>
 
 <div id="chart"></div>
-<div id="network"></div>
 <div id="metricsBox"></div>
-<div id="timeline"></div>
 
 <!-- Dependencies -->
 <script src="https://code.jquery.com/jquery-3.5.1.js"></script>
@@ -62,22 +56,20 @@ function loadCSV() {
     .then(text=>{
       if(text.charCodeAt(0)===0xFEFF) text=text.slice(1);
       const parsed = Papa.parse(text,{header:true,skipEmptyLines:true});
-      const newData = parsed.data;
-      window.pilgrimsData = newData;
-      const headers = Object.keys(newData[0]||{});
+      window.pilgrimsData = parsed.data;
+      const headers = Object.keys(parsed.data[0]||{});
 
       if($.fn.DataTable.isDataTable('#pilgrimsTable')){
         const table = $('#pilgrimsTable').DataTable();
         table.clear();
-        table.rows.add(newData.map(r=>headers.map(h=>r[h]??"")));
+        table.rows.add(parsed.data.map(r=>headers.map(h=>r[h]??"")));
         table.draw();
       } else {
         $("#pilgrimsTable").DataTable({
-          data: newData.map(r=>headers.map(h=>r[h]??"")),
+          data: parsed.data.map(r=>headers.map(h=>r[h]??"")),
           columns: headers.map(h=>({title:h}))
         });
       }
-
       plotByYear();
     })
     .catch(err=>{console.error(err); alert("Не удалось загрузить CSV.");});
@@ -104,6 +96,7 @@ function plotByYear(){
   const years=Object.keys(counts).sort((a,b)=>a-b);
   const values=years.map(y=>counts[y]);
   Plotly.newPlot("chart",[ {x:years, y:values, type:"bar"} ],{ title:"Публикации по годам (Дата издания)"});
+  document.getElementById("metricsBox").innerHTML="";
 }
 
 /* =======================
@@ -119,6 +112,7 @@ function plotByAuthor(){
     counts[author]=(counts[author]||0)+1;
   });
   Plotly.newPlot("chart",[ {x:Object.keys(counts),y:Object.values(counts),type:"bar"} ],{ title:"Активность авторов"});
+  document.getElementById("metricsBox").innerHTML="";
 }
 
 /* =======================
@@ -132,6 +126,7 @@ function plotByColumn(colName,title){
     if(val) counts[val]=(counts[val]||0)+1;
   });
   Plotly.newPlot("chart",[ {x:Object.keys(counts),y:Object.values(counts),type:"bar"} ],{ title });
+  document.getElementById("metricsBox").innerHTML="";
 }
 
 /* =======================
@@ -154,18 +149,13 @@ function renderNetwork(){
   for(let k in nodeMap){
     const n=nodeMap[k];
     n.size=15+n.degree*2;
-    n.title = `${n.label}\nПубликаций: ${n.count}`; // tooltip
+    n.title = `${n.label}\nПубликаций: ${n.count}`;
     nodes.push(n);
   }
-
   const network=new vis.Network(
-    document.getElementById("network"),
+    document.getElementById("chart"),
     {nodes:new vis.DataSet(nodes),edges:new vis.DataSet(edges)},
-    {
-      physics:{enabled:true},
-      edges:{color:"#555"},
-      nodes:{font:{size:16}}
-    }
+    {physics:{enabled:true},edges:{color:"#555"},nodes:{font:{size:16}}}
   );
 
   // Метрики
@@ -185,14 +175,12 @@ function renderJournalSourceNetwork(){
     const journal=r["Журнал"]?.trim();
     const source=r["Откуда перепечатан текст"]?.trim();
     if(!journal||!source) return;
-    if(["Оригинальный","Не оригинальный"].includes(source)) return;
+    if(["Оригинальный","Не оригинальный"].includes(source)) return; // исключаем
     if(!added.has(journal)){ nodes.add({id:journal,label:journal,shape:"square",color:"blue",title:`Журнал: ${journal}`}); added.add(journal);}
     if(!added.has(source)){ nodes.add({id:source,label:source,shape:"dot",color:"orange",title:`Источник: ${source}`}); added.add(source);}
     edges.add({from:journal,to:source});
   });
-  new vis.Network(document.getElementById("network"),{nodes,edges},{
-    physics:{enabled:true}, edges:{color:"#555"}, nodes:{font:{size:16}}
-  });
+  new vis.Network(document.getElementById("chart"),{nodes,edges},{physics:{enabled:true},edges:{color:"#555"},nodes:{font:{size:16}}});
   document.getElementById("metricsBox").innerHTML="";
 }
 
@@ -213,14 +201,10 @@ function plotTimeline(){
   });
   events.sort((a,b)=>a.year-b.year);
 
-  // Уникальная Y координата для каждого события в году (чтобы видеть несколько публикаций в один год)
-  const yearCount = {};
-  const yData = events.map(e => {
-    yearCount[e.year] = (yearCount[e.year]||0) + 1;
-    return yearCount[e.year];
-  });
+  const yearCount={};
+  const yData=events.map(e=>{ yearCount[e.year]=(yearCount[e.year]||0)+1; return yearCount[e.year]; });
 
-  Plotly.newPlot("timeline",[{
+  Plotly.newPlot("chart",[{
     x:events.map(e=>e.year),
     y:yData,
     text:events.map(e=>e.title),
@@ -228,6 +212,7 @@ function plotTimeline(){
     type:"scatter",
     marker:{size:12}
   }],{title:"Timeline публикаций", yaxis:{visible:false}});
+  document.getElementById("metricsBox").innerHTML="";
 }
 </script>
 </body>
