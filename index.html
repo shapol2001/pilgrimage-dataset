@@ -33,8 +33,8 @@
   <button class="btn btn-secondary m-1" onclick="plotTimeline()">Показать timeline</button>
 
   <div id="chart"></div>
-  <div id="network" style="height:600px;"></div>
-  <div id="timeline" style="height:500px;"></div>
+  <div id="network" style="height:600px; border:1px solid #ccc;"></div>
+  <div id="timeline" style="height:500px; border:1px solid #ccc;"></div>
 
   <!-- JQuery + DataTables -->
   <script src="https://code.jquery.com/jquery-3.5.1.js"></script>
@@ -50,45 +50,63 @@
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 
   <script>
-    // Загрузка CSV
+    // Загружаем CSV
     fetch("pilgrims.csv")
-      .then(response => response.text())
+      .then(response => {
+        if (!response.ok) throw new Error("CSV файл не найден: " + response.status);
+        return response.text();
+      })
       .then(csvText => {
-        const parsed = Papa.parse(csvText, { header: true, skipEmptyLines: true });
+        const parsed = Papa.parse(csvText, {
+          header: true,
+          skipEmptyLines: true,
+          dynamicTyping: false
+        });
         window.pilgrimsData = parsed.data;
 
-        const headers = Object.keys(window.pilgrimsData[0]);
+        console.log("Parsed data:", window.pilgrimsData);
+
+        const headers = Object.keys(window.pilgrimsData[0] || {});
         $("#pilgrimsTable").DataTable({
           data: window.pilgrimsData.map(r => headers.map(h => r[h])),
           columns: headers.map(h => ({ title: h }))
         });
 
-        plotByYear(); // график по умолчанию
+        // Построим сразу граф по годам
+        plotByYear();
       })
       .catch(err => {
-        console.error("Ошибка загрузки CSV:", err);
-        alert("Не удалось загрузить CSV. Проверьте путь к pilgrims.csv");
+        console.error("Ошибка загрузки/парсинга CSV:", err);
+        alert("Не удалось загрузить или распарсить CSV. Проверь путь и формат.");
       });
 
     function checkData() {
-      if (!window.pilgrimsData) {
-        alert("Данные ещё не загружены!");
+      if (!window.pilgrimsData || !window.pilgrimsData.length) {
+        alert("Данные ещё не загружены или пусты!");
         return false;
       }
       return true;
     }
 
-    // График публикаций по годам
+    // График публикаций по годам (по «Дата посещения Святой земли»)
     function plotByYear() {
       if (!checkData()) return;
+
       const counts = {};
       window.pilgrimsData.forEach(r => {
-        const year = r["Дата посещения Святой земли"]?.trim();
-        if (year) counts[year] = (counts[year] || 0) + 1;
+        const val = r["Дата посещения Святой земли"];
+        if (!val) return;
+        const year = val.toString().trim();
+        if (!year) return;
+        counts[year] = (counts[year] || 0) + 1;
       });
+
+      const x = Object.keys(counts).sort();
+      const y = x.map(k => counts[k]);
+
       Plotly.newPlot("chart", [{
-        x: Object.keys(counts),
-        y: Object.values(counts),
+        x: x,
+        y: y,
         type: "bar"
       }], { title: "Публикации по годам" });
     }
@@ -96,19 +114,27 @@
     // Активность авторов
     function plotByAuthor() {
       if (!checkData()) return;
+
       const counts = {};
       window.pilgrimsData.forEach(r => {
-        const author = r["Автор"]?.trim();
-        if (author) counts[author] = (counts[author] || 0) + 1;
+        const author = r["Автор"];
+        if (!author) return;
+        const name = author.toString().trim();
+        if (!name) return;
+        counts[name] = (counts[name] || 0) + 1;
       });
-      Plotly.newPlot("chart", [{
-        x: Object.keys(counts),
-        y: Object.values(counts),
+
+      const x = Object.keys(counts);
+      const y = x.map(k => counts[k]);
+
+      Plotly.newPlot("на chart", [{
+        x: x,
+        y: y,
         type: "bar"
       }], { title: "Активность авторов" });
     }
 
-    // Сетевой граф с подписями
+    // Сетевой граф Автор ↔ Журнал
     function renderNetwork() {
       if (!checkData()) return;
 
@@ -117,60 +143,72 @@
       const nodeSet = new Set();
 
       window.pilgrimsData.forEach(r => {
-        const author = r["Автор"]?.trim();
-        const journal = r["Журнал"]?.trim();
+        const author = r["Автор"];
+        const journal = r["Журнал"];
         if (!author || !journal) return;
 
-        if (!nodeSet.has(author)) {
-          nodes.push({
-            id: author,
-            label: author,
-            shape: "dot",
-            size: 30
-          });
-          nodeSet.add(author);
-        }
+        const a = author.toString().trim();
+        const j = journal.toString().trim();
+        if (!a || !j) return;
 
-        if (!nodeSet.has(journal)) {
-          nodes.push({
-            id: journal,
-            label: journal,
-            shape: "square",
-            size: 30
-          });
-          nodeSet.add(journal);
+        if (!nodeSet.has(a)) {
+          nodes.push({ id: a, label: a, shape: "dot", size: 25 });
+          nodeSet.add(a);
         }
-
-        edges.push({ from: author, to: journal });
+        if (!nodeSet.has(j)) {
+          nodes.push({ id: j, label: j, shape: "square", size: 25 });
+          nodeSet.add(j);
+        }
+        edges.push({ from: a, to: j });
       });
+
+      console.log("Network nodes:", nodes);
+      console.log("Network edges:", edges);
 
       const container = document.getElementById("network");
       const data = { nodes: new vis.DataSet(nodes), edges: new vis.DataSet(edges) };
       const options = {
         physics: {
           enabled: true,
-          barnesHut: { gravitationalConstant: -30000, centralGravity: 0.1, springLength: 150, springConstant: 0.02 }
+          barnesHut: {
+            gravitationalConstant: -20000,
+            centralGravity: 0.1,
+            springLength: 120,
+            springConstant: 0.05
+          },
+          stabilization: { iterations: 250 }
         },
         nodes: {
           font: { size: 16, color: "#000", face: "Arial" },
-          borderWidth: 2
+          borderWidth: 1
         },
         edges: {
           smooth: true,
-          color: { color: "#888" }
+          color: { color: "#555" }
         }
       };
       new vis.Network(container, data, options);
     }
 
-    // Timeline публикаций
+    // Timeline публикаций (по «Дата издания» и «Название»)
     function plotTimeline() {
       if (!checkData()) return;
 
-      const events = window.pilgrimsData.map(r => ({
-        year: +r["Дата издания"],
-        title: r["Название"]?.replace(/\r?\n/g, " ").trim()
-      })).filter(e => e.year);
+      const events = window.pilgrimsData
+        .map(r => {
+          const y = r["Дата издания"];
+          const t = r["Название"];
+          if (!y) return null;
+          const year = parseInt(y.toString().trim(), 10);
+          if (isNaN(year)) return null;
+          return { year: year, title: t ? t.toString().replace(/\r?\n/g, " ").trim() : "" };
+        })
+        .filter(e => e);
+
+      if (!events.length) {
+        alert("Нет данных для timeline (поле «Дата издания» пустое).");
+        return;
+      }
 
       Plotly.newPlot("timeline", [{
         x: events.map(e => e.year),
