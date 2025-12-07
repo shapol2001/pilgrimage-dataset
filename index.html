@@ -8,20 +8,19 @@
 <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css"/>
 
 <style>
-  body { padding: 30px; }
-  #chart, #networkChart, #timelineChart {
-    margin-top: 20px; border: 1px solid #aaa; padding: 10px;
-    min-height: 500px;
-  }
-  #metricsBox { margin-top: 10px; font-weight: bold; }
-  .btn-line { display: flex; flex-wrap: wrap; gap:10px; margin-bottom:10px; }
+body { padding: 30px; }
+#chart, #networkChart, #timelineChart {
+  margin-top: 20px; border: 1px solid #aaa; padding: 10px;
+  min-height: 500px;
+}
+#metricsBox { margin-top: 10px; font-weight: bold; }
+.btn-line { display: flex; flex-wrap: wrap; gap:10px; margin-bottom:10px; }
 </style>
 </head>
 
 <body>
 <h2>Паломнические и путевые записки</h2>
 
-<!-- Таблица CSV всегда сверху -->
 <table id="pilgrimsTable" class="display" style="width:100%"></table>
 
 <hr/>
@@ -38,8 +37,9 @@
 
 <h4>Сетевые графы</h4>
 <div class="btn-line">
-  <button class="btn btn-success" onclick="renderNetwork()">Сеть автор → журнал</button>
-  <button class="btn btn-success" onclick="renderJournalSourceNetwork()">Сеть журнал → источник</button>
+  <select id="networkYear" class="form-select" style="width:150px;" onchange="updateNetwork()">Год</select>
+  <button class="btn btn-success" onclick="setNetworkType('author')">Сеть автор → журнал</button>
+  <button class="btn btn-success" onclick="setNetworkType('source')">Сеть журнал → источник</button>
 </div>
 <div id="networkChart"></div>
 <div id="metricsBox"></div>
@@ -57,17 +57,15 @@
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 
 <script>
-/* =======================
-   Загрузка CSV
-======================= */
+let networkType = 'author'; // 'author' или 'source'
+
 function loadCSV() {
   fetch("pilgrims.csv?nocache=" + new Date().getTime())
     .then(r=>r.text())
     .then(text=>{
       if(text.charCodeAt(0)===0xFEFF) text=text.slice(1);
       const parsed = Papa.parse(text,{header:true,skipEmptyLines:true});
-      window.pilgrimsDataFull = parsed.data; // вся таблица
-      // Данные для визуализаций с фильтром "Неизвестно"
+      window.pilgrimsDataFull = parsed.data;
       window.pilgrimsData = parsed.data.filter(r=>{
         return !Object.values(r).some(v=>v?.trim().toLowerCase()==="неизвестно");
       });
@@ -84,13 +82,17 @@ function loadCSV() {
           columns: headers.map(h=>({title:h}))
         });
       }
+
+      populateYearDropdown();
       plotByYear();
+      updateNetwork();
     })
     .catch(err=>{console.error(err); alert("Не удалось загрузить CSV.");});
 }
-loadCSV();
 
 function checkData(){ if(!window.pilgrimsData || pilgrimsData.length===0){ alert("Данные не загружены!"); return false; } return true; }
+
+loadCSV();
 
 /* =======================
    Графики
@@ -137,11 +139,43 @@ function plotByColumn(colName,title){
 /* =======================
    Сети
 ======================= */
-function renderNetwork(){
+function setNetworkType(type){ networkType=type; updateNetwork(); }
+
+function populateYearDropdown(){
   if(!checkData()) return;
+  const years = [...new Set(pilgrimsData.map(r=>{
+    let y=r["Дата издания"];
+    if(!y) return null;
+    y=y.toString().trim().replace(/[^\d]/g,"");
+    if(y.length<3) return null;
+    return parseInt(y);
+  }).filter(Boolean))].sort((a,b)=>a-b);
+  const sel = document.getElementById("networkYear");
+  sel.innerHTML='<option value="all">Все года</option>';
+  years.forEach(y=>{ sel.innerHTML+=`<option value="${y}">${y}</option>`; });
+}
+
+function updateNetwork(){
+  if(!checkData()) return;
+  const selectedYear=document.getElementById("networkYear").value;
+  let dataFiltered = pilgrimsData;
+  if(selectedYear!=="all"){
+    dataFiltered = pilgrimsData.filter(r=>{
+      let y=r["Дата издания"];
+      if(!y) return false;
+      y=y.toString().trim().replace(/[^\d]/g,"");
+      return parseInt(y)===parseInt(selectedYear);
+    });
+  }
+
+  if(networkType==='author') renderNetwork(dataFiltered);
+  else renderJournalSourceNetwork(dataFiltered);
+}
+
+function renderNetwork(data){
   const nodes=[], edges=[];
   const nodeMap={};
-  pilgrimsData.forEach(r=>{
+  data.forEach(r=>{
     const a=r["Автор"]?.trim();
     const j=r["Журнал"]?.trim();
     if(!a||!j) return;
@@ -162,17 +196,15 @@ function renderNetwork(){
     {nodes:new vis.DataSet(nodes),edges:new vis.DataSet(edges)},
     {physics:{enabled:true},edges:{color:"#555"},nodes:{font:{size:16}}}
   );
-
   const totalNodes=nodes.length, totalEdges=edges.length;
   const avgDegree=(totalEdges*2/totalNodes).toFixed(2);
   document.getElementById("metricsBox").innerHTML=`Узлов: ${totalNodes}, Связей: ${totalEdges}, Средняя степень: ${avgDegree}`;
 }
 
-function renderJournalSourceNetwork(){
-  if(!checkData()) return;
+function renderJournalSourceNetwork(data){
   const nodes=new vis.DataSet(), edges=new vis.DataSet();
   const added=new Set();
-  pilgrimsData.forEach(r=>{
+  data.forEach(r=>{
     const journal=r["Журнал"]?.trim();
     const source=r["Откуда перепечатан текст"]?.trim();
     if(!journal||!source) return;
