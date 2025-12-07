@@ -56,7 +56,7 @@
 <script>
 /* =======================
    ЗАГРУЗКА CSV
-   ======================= */
+======================= */
 fetch("pilgrims.csv")
   .then(r => r.text())
   .then(text => {
@@ -87,7 +87,7 @@ function checkData() {
 
 /* =======================
    ГРАФИК: ПУБЛИКАЦИИ ПО ГОДАМ
-   ======================= */
+======================= */
 function plotByYear() {
   if (!checkData()) return;
   const counts = {};
@@ -107,7 +107,7 @@ function plotByYear() {
 
 /* =======================
    ГРАФИК: АВТОРЫ
-   ======================= */
+======================= */
 function plotByAuthor() {
   if(!checkData()) return;
   const counts={};
@@ -126,7 +126,7 @@ function plotByAuthor() {
 
 /* =======================
    ГРАФИК ПО ЛЮБОЙ КОЛОНКЕ
-   ======================= */
+======================= */
 function plotByColumn(colName,title){
   if(!checkData()) return;
   const counts={};
@@ -143,37 +143,49 @@ function plotByColumn(colName,title){
 
 /* =======================
    СЕТЕВОЙ ГРАФ
-   ======================= */
+======================= */
 function renderNetwork() {
   if (!checkData()) return;
 
-  const nodes=[], edges=[], nodeMap={};
+  const nodes = [];
+  const edges = [];
+  const nodeMap = {};
 
   pilgrimsData.forEach(r=>{
-    const a=r["Автор"]?.trim(), j=r["Журнал"]?.trim();
-    if(!a || !j) return;
-    if(a.toLowerCase() === "неизвестно" || j.toLowerCase() === "неизвестно") return;
+    const author = r["Автор"]?.trim();
+    const journal = r["Журнал"]?.trim();
+    if(!author || !journal) return;
+    if(author.toLowerCase() === "неизвестно" || journal.toLowerCase() === "неизвестно") return;
 
-    if(!nodeMap[a]) nodeMap[a]={id:a,label:a,color:"red",type:"author",degree:0};
-    if(!nodeMap[j]) nodeMap[j]={id:j,label:j,color:"blue",type:"journal",degree:0};
+    if(!nodeMap[author]) nodeMap[author]={id:author,label:author,color:"red",type:"author",degree:0};
+    if(!nodeMap[journal]) nodeMap[journal]={id:journal,label:journal,color:"blue",type:"journal",degree:0};
 
-    nodeMap[a].degree++;
-    nodeMap[j].degree++;
+    nodeMap[author].degree++;
+    nodeMap[journal].degree++;
 
-    edges.push({from:a,to:j});
+    edges.push({from:author,to:journal});
   });
 
   for(let k in nodeMap){
     const n=nodeMap[k];
-    n.size = 15 + n.degree*2;
+    n.size=15+n.degree*2;
     n.title=`${n.label}\nСвязей: ${n.degree}`;
     nodes.push(n);
   }
 
+  const container = document.getElementById("network");
+  container.innerHTML = ""; // очистка перед построением
+
+  if(nodes.length===0 || edges.length===0){
+    container.innerHTML="<p>Нет данных для отображения сети.</p>";
+    document.getElementById("metricsBox").innerHTML="";
+    return;
+  }
+
   new vis.Network(
-    document.getElementById("network"),
-    { nodes: new vis.DataSet(nodes), edges: new vis.DataSet(edges) },
-    { physics:{enabled:true}, edges:{color:"#555"}, nodes:{font:{size:16}} }
+    container,
+    { nodes:new vis.DataSet(nodes), edges:new vis.DataSet(edges) },
+    { physics:{enabled:true,barnesHut:{gravitationalConstant:-30000,centralGravity:0.1,springLength:150,springConstant:0.02}}, edges:{color:"#555",smooth:true}, nodes:{font:{size:16}} }
   );
 
   // Метрики сети
@@ -185,7 +197,7 @@ function renderNetwork() {
 
 /* =======================
    TIMELINE
-   ======================= */
+======================= */
 function plotTimeline() {
   if(!checkData()) return;
 
